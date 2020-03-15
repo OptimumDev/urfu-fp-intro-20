@@ -459,7 +459,7 @@ isZero = "\\x. x (\\y. false) true"
   Что она возвращает? Чему равен pred pred 1?
 -}
 fib :: String
-fib = "Y (\\f.\\x. iszero x 1 (plus (f (pred x)) (f (pred (pred x)))))"
+fib = "Y (\\f.\\x. (x (\\y. false) true) 1 (plus (f (pred x)) (f (pred (pred x)))))"
 
 -- </Задачи для самостоятельного решения>
 
