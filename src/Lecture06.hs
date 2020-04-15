@@ -130,6 +130,13 @@ module Lecture06 where
   если нет, то докажите это (напишите, почему)
 
   *Решение*
+
+  x x - апликация => x (который первый) имеет тип X -> T
+  Он так же принимает самого себя как аргумент => X = X -> T
+  Но тогда X -> T = (X -> T) -> T = ((X -> T) -> T) -> T и так далее
+  Следовательно тип вывести невозможно
+
+  Ответ: нет
 -}
 -- </Задачи для самостоятельного решения>
 
@@ -327,6 +334,23 @@ module Lecture06 where
   и запишите все шаги β-редукции ->β.
 
   selfApp id = ... ->β ...
+
+  *Решение*
+
+  selfApp : (∀X.X->X) -> (∀X.X->X)
+  selfApp = λx:∀X.X->X.x [∀X.X->X] x
+
+  id : ∀X.X->X
+  id = λx:∀X.x
+
+  selfApp id = (λx:∀X.X->X.x [∀X.X->X] x) (λx:∀X.x) ->β 
+               (λa:∀A.A->A.a [∀B.B->B] a) (λc:∀C.c) ->β 
+               (λa.(∀B.B->B)->(∀B.B->B).a a) (λc:∀C.c) ->β 
+               (λc:∀C.c) (λc:∀C.c) ->β 
+               (λc:∀C.c) (λd:∀D.d) ->β 
+               (λd:∀D.d)
+
+  selfApp id : ∀D.D->D
 -}
 -- </Задачи для самостоятельного решения>
 
@@ -578,16 +602,16 @@ module Lecture06 where
 -}
 
 f :: [a] -> Int
-f = error "not implemented"
+f = length
 
 g :: (a -> b)->[a]->[b]
-g = error "not implemented"
+g = map
 
 q :: a -> a -> a
-q x y = error "not implemented"
+q x _ = x
 
 p :: (a -> b) -> (b -> c) -> (a -> c)
-p f g = error "not implemented"
+p f g = g . f
 
 {-
   Крестики-нолики Чёрча.
@@ -624,7 +648,10 @@ createRow x y z = \case
   Third -> z
 
 createField :: Row -> Row -> Row -> Field
-createField x y z = error "not implemented"
+createField x y z = \case
+  First -> x
+  Second -> y
+  Third -> z
 
 -- Чтобы было с чего начинать проверять ваши функции
 emptyField :: Field
@@ -633,17 +660,51 @@ emptyField = createField emptyLine emptyLine emptyLine
     emptyLine = createRow Empty Empty Empty
 
 setCellInRow :: Row -> Index -> Value -> Row
-setCellInRow r i v = error "not implemented"
+setCellInRow r i v x
+  | i == x = v
+  | otherwise = r x
 
 -- Возвращает новое игровое поле, если клетку можно занять.
 -- Возвращает ошибку, если место занято.
 setCell :: Field -> Index -> Index -> Value -> Either String Field
-setCell field i j v = error "not implemented"
+setCell field i j v = 
+  let 
+    cell = field i j 
+    changedField x y
+      | i == x && j == y = v
+      | otherwise = field x y
+  in 
+    case cell of 
+      Empty -> Right changedField
+      value -> Left $ "There is '" ++ show value ++ "' on " ++ show i ++ " " ++ show j
 
 data GameState = InProgress | Draw | XsWon | OsWon deriving (Eq, Show)
 
 getGameState :: Field -> GameState
-getGameState field = error "not implemented"
+getGameState field
+  | any (all isCross) results = XsWon
+  | any (all isZero) results = OsWon
+  | any (any isEmpty) results = InProgress
+  | otherwise = Draw
+  where
+    getValue (i, j) = field i j
+
+    isCross Cross = True
+    isCross _ = False
+
+    isZero Zero = True
+    isZero _ = False
+
+    isEmpty Empty = True
+    isEmpty _ = False
+
+    indexes = [First, Second, Third]
+    rowsIndexes = [[(i, j) | j <- indexes] | i <- indexes]
+    columnsIndexes = [[(i, j) | i <- indexes] | j <- indexes]
+    mainDiagonal = zip indexes indexes
+    reverseDiagonal = zip indexes $ reverse indexes
+    lines = [mainDiagonal, reverseDiagonal] ++ rowsIndexes ++ columnsIndexes   
+    results = map (map getValue) lines
 
 -- </Задачи для самостоятельного решения>
 
