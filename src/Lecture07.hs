@@ -81,7 +81,6 @@ instance Show Expr where
   show (UnaryMinus x) = "-" ++ showExpr x
   show (Abs x) = "|" ++ show x ++ "|"
 
-
 {-
   Реализуйте instance Semigroup для вектора:
 -}
