@@ -2,13 +2,14 @@
 
 module DB.Booking where
 
-import Data.Aeson
+import Data.Aeson hiding (Success)
 import Data.Time
 import Database.SQLite.Simple
 import Database.SQLite.Simple.ToField
 import Database.SQLite.Simple.FromField
 import Servant.API
 import GHC.Generics
+import Control.Monad.IO.Class
 
 import DB.MovieSession
 import DB.Seat
@@ -51,13 +52,46 @@ instance ToJSON Booking
 instance FromJSON Booking
 -- ^ возможность для работы с JSON
 
+data BookingResult = Success | Expired deriving (Eq, Show, Generic)
+
+instance ToJSON BookingResult
+instance FromJSON BookingResult
+
+data BookingResponse = BookingSuccess
+  { result :: BookingResult
+  , bookingMovieSessionId :: MovieSessionId
+  , bookingSeatId :: SeatId
+  } | BookingFail { result :: BookingResult }
+  deriving (Eq, Show, Generic)
+
+instance ToJSON BookingResponse
+instance FromJSON BookingResponse
+
+bookingSuccess :: MovieSessionId -> SeatId -> BookingResponse
+bookingSuccess = BookingSuccess Success
+
 {-
   Booking запрос должен проверить наличие предварительного бронирования.
   Если оно существует и прошло меньше 10 минут от создания, то бронирование
   проходит успешно, иначе необходимо вернуть сообщение об ошибке в JSON формате.
 -}
-tryBook
-  :: DBMonad m
-  => BookingId
-  -> m Bool
-tryBook = undefined
+
+getBooking :: DBMonad m => BookingId -> m [Booking]
+getBooking bookingId = runSQL $ \conn ->
+  query conn ("SELECT id, seat_id, movie_session_id, is_preliminary, created_at FROM bookings WHERE id = ? AND isPreliminary") bookingId
+
+isExpired :: UTCTime -> IO Bool
+isExpired createdTime = do
+  curTime <- getCurrentTime
+  return $ addUTCTime 600 createdTime > curTime
+
+tryBook :: DBMonad m => BookingId -> m (Maybe BookingResponse)
+tryBook bookingId = do
+  booking <- getBooking bookingId
+  case booking of
+    (Booking _ seat _ movie created : _) -> do
+      expired <- liftIO $ isExpired created
+      return $ Just $ if expired
+        then BookingFail { result = Expired }
+        else bookingSuccess movie seat
+    _ -> return Nothing
