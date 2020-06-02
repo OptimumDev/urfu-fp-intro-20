@@ -35,8 +35,8 @@ newtype BookingId = BookingId
 data Booking = Booking
   { bookingId :: BookingId
   , seatId :: SeatId
-  , isPreliminary :: Bool
   , movieSessionId :: MovieSessionId
+  , isPreliminary :: Bool
   , createdAt :: UTCTime
   } deriving (Eq, Show, Generic)
 -- Класс Generic отвечает за универсальное кодирование типа, т.е. за  такое представление,
@@ -52,7 +52,7 @@ instance ToJSON Booking
 instance FromJSON Booking
 -- ^ возможность для работы с JSON
 
-data BookingResult = Success | Expired deriving (Eq, Show, Generic)
+data BookingResult = Success | Expired | AlreadyPaid deriving (Eq, Show, Generic)
 
 instance ToJSON BookingResult
 instance FromJSON BookingResult
@@ -78,20 +78,30 @@ bookingSuccess = BookingSuccess Success
 
 getBooking :: DBMonad m => BookingId -> m [Booking]
 getBooking bookingId = runSQL $ \conn ->
-  query conn ("SELECT id, seat_id, movie_session_id, is_preliminary, created_at FROM bookings WHERE id = ? AND isPreliminary") bookingId
+  query conn "SELECT id, seat_id, movie_session_id, is_preliminary, created_at FROM bookings WHERE id = ?" bookingId
+
+checkoutBooking :: DBMonad m => BookingId -> m ()
+checkoutBooking bookingId = runSQL $ \conn ->
+  execute conn "UPDATE bookings SET is_preliminary = false WHERE id = ?" bookingId
+
+deleteBooking :: DBMonad m => BookingId -> m ()
+deleteBooking bookingId = runSQL $ \conn ->
+  execute conn "DELETE FROM bookings WHERE id = ?" bookingId
 
 isExpired :: UTCTime -> IO Bool
 isExpired createdTime = do
   curTime <- getCurrentTime
-  return $ addUTCTime 600 createdTime > curTime
+  return $ addUTCTime 600 createdTime < curTime
 
 tryBook :: DBMonad m => BookingId -> m (Maybe BookingResponse)
 tryBook bookingId = do
   booking <- getBooking bookingId
   case booking of
-    (Booking _ seat _ movie created : _) -> do
+    [] -> return Nothing
+    Booking _ seat movie isPreliminary created : _ -> do
       expired <- liftIO $ isExpired created
-      return $ Just $ if expired
-        then BookingFail { result = Expired }
-        else bookingSuccess movie seat
-    _ -> return Nothing
+      return $ Just $ case (isPreliminary, expired) of
+        (False, _) -> BookingFail { result = AlreadyPaid }
+        (_, True) -> BookingFail { result = Expired }
+        _ -> bookingSuccess movie seat
+    

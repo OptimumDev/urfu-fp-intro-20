@@ -39,3 +39,11 @@ getSeatsBySessionId
   -> m [Seat]
 getSeatsBySessionId msId = runSQL $ \conn -> -- Чтобы передать параметры в запрос используется `?`  ↓
   query conn "SELECT id, row, seat, available, movie_session_id from seats where movie_session_id = ?" msId
+
+checkoutSeat :: DBMonad m => SeatId -> m ()
+checkoutSeat seatId = runSQL $ \conn -> do
+  execute conn "UPDATE seats SET available = false WHERE id = ?" seatId
+
+refundSeat :: DBMonad m => SeatId -> m ()
+refundSeat seatId = runSQL $ \conn -> do
+  execute conn "UPDATE seats SET available = true WHERE id = ?" seatId

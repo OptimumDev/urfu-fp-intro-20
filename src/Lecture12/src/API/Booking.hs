@@ -1,8 +1,6 @@
-module API.Session where
+module API.Booking where
 
 import Servant.API
-import DB.MovieSession
-import DB.Seat
 import DB.Booking
 
 type BookingAPI
