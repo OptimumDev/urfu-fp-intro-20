@@ -365,9 +365,13 @@ instance ShowAll xs => Show (HList xs) where
 -- <Задачи для самостоятельного решения>
 
 -- Реализуйте instance Eq для HList
-instance Eq (HList xs) where
- (==) = error "not implemented"
+type family EqAll (xs :: [Type]) :: Constraint where
+  EqAll '[] = ()
+  EqAll (x ': xs) = (Eq x, EqAll xs)
 
+instance EqAll xs => Eq (HList xs) where
+  HNil == HNil = True
+  (HCons x xs) == (HCons y ys) = x == y && xs == ys
 -- </Задачи для самостоятельного решения>
 
 {- Servant explained
@@ -649,7 +653,8 @@ getAt (SSucc m) (VCons _ (VCons x xs)) = getAt m (VCons x xs)
 
 -- Напишите аналог zip для Vec n
 vzip :: Vec a n -> Vec b n -> Vec (a, b) n
-vzip = error "not implemented"
+vzip VNil VNil = VNil
+vzip (VCons x xs) (VCons y ys) = VCons (x, y) $ vzip xs ys
 -- </Задачи для самостоятельного решения>
 
 {- printf
